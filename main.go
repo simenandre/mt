@@ -39,7 +39,7 @@ func main() {
 		enc.Encode(tasks)
 	} else {
 		for _, t := range tasks {
-			fmt.Println(t.Title)
+			fmt.Printf("- %s\n", t.Title)
 		}
 	}
 }
