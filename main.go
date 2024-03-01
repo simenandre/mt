@@ -2,11 +2,15 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/simenandre/mt/task"
+	"github.com/spf13/pflag"
 )
 
 func main() {
@@ -15,43 +19,80 @@ func main() {
 	if len(os.Args) > 1 {
 		dir = os.Args[1]
 	}
-	if err := scanDirectoryForTodos(dir); err != nil {
+
+	tasks, err := getTasks(dir)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+
+	jsonOut := pflag.BoolP("json", "j", false, "output as json")
+	all := pflag.BoolP("all", "a", false, "output all tasks")
+	pflag.Parse()
+
+	if !*all {
+		tasks = task.FilterAndSortTasks(tasks)
+	}
+
+	if *jsonOut {
+		enc := json.NewEncoder(os.Stdout)
+		enc.Encode(tasks)
+	} else {
+		for _, t := range tasks {
+			fmt.Println(t.Title)
+		}
+	}
 }
 
-// scanDirectoryForTodos scans the given directory for Markdown files and prints all todo items found.
-func scanDirectoryForTodos(dir string) error {
-	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil // Skip directories
-		}
+func getFileList(dir string) ([]string, error) {
+	var files []string
+	err := filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
 		if strings.HasSuffix(path, ".md") {
-			return extractAndPrintTodosFromFile(path)
+			files = append(files, path)
 		}
 		return nil
 	})
+	return files, err
 }
 
-// extractAndPrintTodosFromFile reads a file and prints lines that contain todo items.
-func extractAndPrintTodosFromFile(filePath string) error {
+func getTasks(dir string) ([]task.Task, error) {
+	files, err := getFileList(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	var tasks []task.Task
+	for _, file := range files {
+		t, err := extractAndParseTasks(file)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, *t...)
+	}
+	return tasks, nil
+}
+
+func extractAndParseTasks(filePath string) (*[]task.Task, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer file.Close()
 
+	// make an array of tasks
+	var tasks []task.Task
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "- [ ]") {
-			fmt.Printf("%s: %s\n", filepath.Base(filePath), line)
+
+			t, err := task.ParseTaskLine(line)
+			if err != nil {
+				return nil, err
+			}
+
+			tasks = append(tasks, t)
 		}
 	}
-
-	return scanner.Err()
+	return &tasks, nil
 }
