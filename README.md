@@ -15,7 +15,7 @@ I like Golang, but since I use Go for work, I want to learn a new language.
 
 The goals right now are:
 
-– [ ] Get a list of all the tasks in a directory from every file in the directory, including Markdown variants and "TODO:" variants.
+- [ ] Get a list of all the tasks in a directory from every file in the directory, including Markdown variants and "TODO:" variants.
 - [ ] Parse the task list into a data structure (including parsing emojis for due dates, etc.) (see https://publish.obsidian.md/tasks/Getting+Started/Dates)
 - [ ] Most likely, we need cache
 
