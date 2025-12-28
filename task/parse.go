@@ -1,9 +1,9 @@
 package task
 
 import (
-	"fmt"
-	"regexp"
 	"time"
+
+	taskspec "github.com/taskspec/taskspec-go"
 )
 
 type Task struct {
@@ -14,64 +14,37 @@ type Task struct {
 	Priority  *int       `json:"priority,omitempty"`
 }
 
-func parseDate(emoji string, s string) (*time.Time, error) {
-	re := regexp.MustCompile(emoji + `\s*(\d{4}-\d{2}-\d{2})`)
-
-	matches := re.FindStringSubmatch(s)
-	if len(matches) > 1 {
-		// matches[1] contains the first captured group, i.e., the date string
-		dateStr := matches[1]
-
-		// Parse the extracted date string into a time.Time object
-		const layout = "2006-01-02" // Go's reference date format
-		parsedDate, err := time.Parse(layout, dateStr)
-		if err != nil {
-			fmt.Println("Error parsing date:", err)
-			return nil, err
-		}
-
-		return &parsedDate, nil
-
-	} else {
-		return nil, nil
+func ParseTaskLine(line string) (Task, error) {
+	parser := taskspec.NewParser()
+	taskspecTask, err := parser.Parse(line)
+	if err != nil {
+		return Task{}, err
 	}
-}
 
-func parseTaskTitle(s string) string {
-	datePattern := regexp.MustCompile(`[🛫⏳📅] \d{4}-\d{2}-\d{2}`)
-	checklistPattern := regexp.MustCompile(`- \[ \] `)
+	// If parser returned nil (not a valid task), return empty task
+	if taskspecTask == nil {
+		return Task{}, nil
+	}
 
-	s = datePattern.ReplaceAllString(s, "")
-	s = checklistPattern.ReplaceAllString(s, "")
-	return markdownToText(s)
-}
-
-func ParseTaskLine(task string) (Task, error) {
 	var t Task
+	t.Title = taskspecTask.Description
 
-	t.Title = parseTaskTitle(task)
-	starts, err := parseDate("🛫", task)
-	if err != nil {
-		return t, err
-	}
-	if starts != nil {
-		t.Starts = starts
+	if taskspecTask.StartDate != nil {
+		t.Starts = taskspecTask.StartDate
 	}
 
-	scheduled, err := parseDate("⏳", task)
-	if err != nil {
-		return t, err
-	}
-	if scheduled != nil {
-		t.Scheduled = scheduled
+	if taskspecTask.ScheduledDate != nil {
+		t.Scheduled = taskspecTask.ScheduledDate
 	}
 
-	due, err := parseDate("📅", task)
-	if err != nil {
-		return t, err
+	if taskspecTask.DueDate != nil {
+		t.Due = taskspecTask.DueDate
 	}
-	if due != nil {
-		t.Due = due
+
+	// Convert taskspec Priority to int pointer if set
+	if taskspecTask.Priority != taskspec.PriorityUnknown {
+		priority := int(taskspecTask.Priority)
+		t.Priority = &priority
 	}
 
 	return t, nil

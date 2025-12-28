@@ -51,6 +51,8 @@ func initConfig() error {
 
 	// Bind flags to viper
 	viper.BindPFlag("directory", pflag.Lookup("dir"))
+	viper.BindPFlag("json", pflag.Lookup("json"))
+	viper.BindPFlag("all", pflag.Lookup("all"))
 
 	// Handle positional argument for backward compatibility
 	if args := pflag.Args(); len(args) > 0 {
